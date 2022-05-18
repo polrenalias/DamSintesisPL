@@ -1,2 +1,10 @@
 # DamSintesisPL
-Treball de Sintesis de Primer de DAM
+
+AUTOR:
+  Diego Fernández Sanz
+  Pol Renalias Perez
+  
+DESCRIPCION:
+  Treball de Sintesis de Primer de DAM
+
+
