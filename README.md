@@ -8,7 +8,7 @@ DESCRIPCIÓN:
 
 FECHA:
   INICIÓ: 16/05/2022
-  FINAL: 
+  FINAL: 27/05/2022
   
 CENTRO:
   IES Castellet
