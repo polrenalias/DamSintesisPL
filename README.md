@@ -1,7 +1,9 @@
 # DamSintesisPL
 
 AUTOR:
+
   Diego Fernández Sanz
+  
   Pol Renalias Perez
   
 DESCRIPCION:
