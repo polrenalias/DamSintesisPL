@@ -1,0 +1,13 @@
+Button { 
+	-fx-background-color: #8b0000;
+	-fx-border-radius: 15 15 15 15;    
+}
+ 
+HBox {
+	-fx-background-color: #383838;
+}
+
+TextField {
+	-fx-background-color: #888888;
+	-fx-text-fill: #FFFFFF;
+}
