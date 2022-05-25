@@ -8,14 +8,15 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 
-import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ScrollPane.ScrollBarPolicy;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -30,9 +31,8 @@ import javafx.scene.text.FontPosture;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Screen;
-import javafx.stage.Stage;
 
-public class Reader extends Application {
+public class Reader {
 	private static int zoomCount = 1;
 	private static Text zoomMsg = new Text("x" + zoomCount);
 	private static ImageView iv = new ImageView();
@@ -42,14 +42,14 @@ public class Reader extends Application {
 	private static Button zoomMinus = new Button();
 	private static BorderPane bpane = new BorderPane();
 	private static VBox vBox = new VBox();
-	private static int pageCount = -1;
+	private static int pageCount;
 	private static PDDocument document = new PDDocument();
 	private static PDFRenderer pdfRenderer = new PDFRenderer(document);
 	private static TextField tf = new TextField();
-
-	@Override
-	public void start(Stage primaryStage) {
-		int screenW = (int) Screen.getPrimary().getBounds().getWidth();
+	public static Scene readerScene;
+	
+	public void startReader() {
+	    int screenW = (int) Screen.getPrimary().getBounds().getWidth();
 		int screenH = (int) Screen.getPrimary().getBounds().getHeight();
 		nextPage.setOnAction(e -> loadNext());
 		prevPage.setOnAction(e -> loadPrev());
@@ -85,7 +85,7 @@ public class Reader extends Application {
 		zoomPlus.setGraphic(new ImageView("resources\\zoom_plus.png"));
 		nextPage.setGraphic(new ImageView("resources\\arrow_next.png"));
 		prevPage.setGraphic(new ImageView("resources\\arrow_back.png"));
-		hBox.getChildren().addAll(zoomMinus, zpane, zoomPlus, prevPage, tf, nextPage);
+		hBox.getChildren().addAll(zoomMinus, zpane, zoomPlus, new Separator(Orientation.VERTICAL), prevPage, tf, nextPage);
 		zoomMinus.setDisable(true);
 		hBox.setAlignment(Pos.CENTER);
 		spane.setMinViewportWidth(1000);
@@ -93,9 +93,9 @@ public class Reader extends Application {
 		spane.setVbarPolicy(ScrollBarPolicy.AS_NEEDED);
 		bpane.setCenter(spane);
 		bpane.setTop(hBox);
-		Scene scene = new Scene(bpane, screenW, screenH);
-		scene.getStylesheets().add(getClass().getResource("styles.css").toString());
-		scene.setOnKeyPressed(e -> {
+		Scene readerScene = new Scene(bpane, screenW, screenH);
+		readerScene.getStylesheets().add(getClass().getResource("styles.css").toString());
+		readerScene.setOnKeyPressed(e -> {
 			if (e.getCode() == KeyCode.ADD || e.getCode() == KeyCode.PLUS) {
 				zoomIn();
 			} else if (e.getCode() == KeyCode.SUBTRACT || e.getCode() == KeyCode.MINUS) {
@@ -107,36 +107,33 @@ public class Reader extends Application {
 			} else if (e.getCode() == KeyCode.Q) {
 				try {
 					document.close();
-				} catch (IOException ioe) {
-					ioe.printStackTrace();
+				} catch (IOException io) {
+					MainWindow.logger.warning("IOException: " + io.getMessage());
 				}
-				primaryStage.close();
+				MainWindow.secondStage.hide();
+				MainWindow.secondStage = null;
+				MainWindow.primaryStage.show();
 			} else if (e.getCode() == KeyCode.F) {
-				primaryStage.setFullScreen(true);
+				MainWindow.secondStage.setFullScreen(true);
 			}
 		});
-		loadFile();
-		primaryStage.getIcons().add(new Image("resources\\app_icon.png"));
-		primaryStage.setTitle("Reader");
-		primaryStage.setResizable(false);
-		primaryStage.setScene(scene);
-		primaryStage.show();
+		Reader.readerScene = readerScene;
 	}
-
+	
 	/**
 	 * 
 	 */
-	public static void loadFile() {
+	public static void loadFile(File pdfFilename) {
 		try {
-			File pdfFilename = new File("C:\\Users\\Pol\\Downloads\\Alice_in_Wonderland.pdf");
+			pageCount = -1;
 			document = PDDocument.load(pdfFilename);
 			pdfRenderer = new PDFRenderer(document);
 			loadNext();
 			prevPage.setDisable(true);
 		} catch (IOException e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("IOException: " + e.getMessage());
 		} catch (Exception e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("Exception: " + e.getMessage());
 		}
 	}
 
@@ -158,7 +155,7 @@ public class Reader extends Application {
 				bpane.requestFocus();
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("Exception: " + e.getMessage());
 		}
 	}
 
@@ -203,7 +200,7 @@ public class Reader extends Application {
 				tf.setText("" + (pageCount + 1));
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("Exception: " + e.getMessage());
 		}
 	}
 
@@ -244,7 +241,7 @@ public class Reader extends Application {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("Exception: " + e.getMessage());
 		}
 	}
 
@@ -285,15 +282,7 @@ public class Reader extends Application {
 				zoomCount /= 2;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			MainWindow.logger.warning("Exception: " + e.getMessage());
 		}
-	}
-
-	/**
-	 * 
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		launch(args);
 	}
 }
