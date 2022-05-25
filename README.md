@@ -1,10 +1,17 @@
 # DamSintesisPL
 
-AUTOR:
-  Diego Fernández Sanz
-  Pol Renalias Perez
+AUTORES: 
+  Diego Fernández Sanz --- Pol Renalias Perez
   
-DESCRIPCION:
+DESCRIPCIÓN:
   Treball de Sintesis de Primer de DAM
 
+FECHA:
+  INICIÓ: 16/05/2022
+  FINAL: 27/05/2022
+  
+CENTRO:
+  IES Castellet
 
+AYUDA:
+  https://support.idrsolutions.com/jpedal/tutorials/setup/how-to-setup-jpedal-in-eclipse
