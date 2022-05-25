@@ -86,7 +86,8 @@ public class MainWindow extends Application {
 				} catch (Exception e) {
 					instance++;
 					filepath = Paths.get(System.getProperty("user.dir") + File.separatorChar + "reader_local"
-							+ File.separatorChar + "reader_"+instance+".log");
+							+ File.separatorChar + "reader_" + instance + ".log");
+					Files.deleteIfExists(filepath);
 				}
 				Files.createFile(filepath);
 			} catch (SecurityException s) {
@@ -133,6 +134,10 @@ public class MainWindow extends Application {
 		genreCol.setResizable(false);
 		yearCol.setResizable(false);
 		readerLink.setResizable(false);
+		imgCol.setPrefWidth(200);
+		nameCol.setPrefWidth(200);
+		authorCol.setPrefWidth(200);
+		genreCol.setPrefWidth(200);
 		ToolBar tbar = new ToolBar();
 		MenuItem aboutBttn = new MenuItem("About");
 		MenuItem helpBttn = new MenuItem("Help");
