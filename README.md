@@ -13,5 +13,3 @@ FECHA:
 CENTRO:
   IES Castellet
 
-AYUDA:
-  https://support.idrsolutions.com/jpedal/tutorials/setup/how-to-setup-jpedal-in-eclipse
