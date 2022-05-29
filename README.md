@@ -1,5 +1,7 @@
 # DamSintesisPL
-
+PROYECTO:
+  ReadHistory
+  
 AUTORES: 
   Diego Fernández Sanz --- Pol Renalias Perez
   
