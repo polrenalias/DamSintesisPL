@@ -1,5 +1,7 @@
 # DamSintesisPL
-
+PROYECTO:
+  ReaderHistory
+  
 AUTORES: 
   Diego Fernández Sanz --- Pol Renalias Perez
   
@@ -13,5 +15,3 @@ FECHA:
 CENTRO:
   IES Castellet
 
-AYUDA:
-  https://support.idrsolutions.com/jpedal/tutorials/setup/how-to-setup-jpedal-in-eclipse
