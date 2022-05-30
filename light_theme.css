@@ -1,0 +1,58 @@
+.root {
+	-fx-font-size: 10pt;
+}
+
+Button { 
+	-fx-background-color: #517aa8;
+	-fx-border-radius: 15 15 15 15;    
+}
+ 
+HBox, VBox, TitledPane, Accordion {
+	-fx-background-color: #a1a1a1;
+}
+
+ToolBar {
+	-fx-background-color: #a1a1a1;
+}
+
+MenuButton, MenuItem, TextField, VBox, TableView {
+	-fx-accent: #517aa8;
+	-fx-focus-color: #517aa8;
+}
+
+.table-column {
+	-fx-alignment: CENTER;
+}
+
+.table-column Hyperlink {
+	-fx-text-fill: black;
+	-fx-font-weight: bold;
+}
+
+
+Hyperlink {
+	-fx-text-fill: #000000;
+}
+
+#theme_switch{
+	-fx-background-radius: 30px;
+	-fx-min-width: 30px;
+	-fx-min-height: 30px;
+	-fx-max-width: 30px;
+	-fx-max-height: 30px;
+	-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, white, gray);
+}
+
+TextField {
+	-fx-background-color: #e0e0e0;
+	-fx-text-fill: #000000;
+}
+
+ScrollPane {
+   -fx-background: #FFFFFF;
+   -fx-border-color: #FFFFFF;
+}
+
+ScrollPane VBox {
+	-fx-background-color: #FFFFFF;
+}
