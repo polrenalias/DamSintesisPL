@@ -795,6 +795,7 @@ public class MainWindow extends Application {
 		if (username != null) {
 			try {
 				storeLocalData();
+				logger.info("DEBUG - Exit program");
 			} catch (IOException e) {
 				logger.severe("IOException: " + e.getMessage());
 			}
