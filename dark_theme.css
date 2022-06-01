@@ -1,3 +1,6 @@
+/*	Dark theme CSS style sheet
+	Author: Pol Renalias */
+
 .root {
 	-fx-font-size: 10pt;
 }
@@ -11,8 +14,16 @@ HBox, VBox, TitledPane, Accordion {
 	-fx-background-color: #383838;
 }
 
+#pageSelector {
+	-fx-background-color: #888888;
+	-fx-text-fill: #FFFFFF;
+}
 
 #login {
+	-fx-background-color: transparent;
+}
+
+#signerr {
 	-fx-background-color: transparent;
 }
 
@@ -45,11 +56,6 @@ Hyperlink {
 	-fx-max-width: 30px;
 	-fx-max-height: 30px;
 	-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, gray, black);
-}
-
-TextField {
-	-fx-background-color: #888888;
-	-fx-text-fill: #FFFFFF;
 }
 
 ScrollPane {

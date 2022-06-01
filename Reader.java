@@ -34,12 +34,14 @@ import javafx.scene.text.Text;
 import javafx.stage.Screen;
 
 /**
+ * Reader class that contains the application's book reader inner workings
  * 
- * @author Pol
+ * @author Pol Renalias
  *
  */
 public class Reader {
-	protected static int zoomCount = 1;
+	// Fields declaration and initialization
+	static int zoomCount = 1;
 	private static Text zoomMsg = new Text("x" + zoomCount);
 	private static ImageView iv = new ImageView();
 	private static Button nextPage = new Button();
@@ -55,14 +57,15 @@ public class Reader {
 	private static PDDocument document = new PDDocument();
 	private static PDFRenderer pdfRenderer = new PDFRenderer(document);
 	private static TextField tf = new TextField();
-	protected static Scene readerScene;
+	static Scene readerScene;
 
 	/**
-	 * 
+	 * Method used to create the reader window and its functionalities
 	 */
-	public void startReader() {
+	void startReader() {
 		int screenW = (int) Screen.getPrimary().getBounds().getWidth();
 		int screenH = (int) Screen.getPrimary().getBounds().getHeight();
+
 		nextPage.setOnAction(e -> loadNext());
 		prevPage.setOnAction(e -> loadPrev());
 		firstPage.setOnAction(e -> {
@@ -76,6 +79,7 @@ public class Reader {
 		zoomPlus.setOnAction(e -> zoomIn());
 		zoomReset.setOnAction(e -> {
 			zoomCount = 2;
+			zoomPlus.setDisable(false);
 			zoomOut();
 		});
 		zoomMinus.setOnAction(e -> zoomOut());
@@ -91,6 +95,7 @@ public class Reader {
 				}
 			}
 		});
+
 		iv.setFitHeight(1000);
 		iv.setFitWidth(1000);
 		iv.setPreserveRatio(true);
@@ -100,11 +105,14 @@ public class Reader {
 		vBox.setPadding(new Insets(10, 410, 10, 410));
 		spane.setContent(vBox);
 		tf.setMaxWidth(65);
+		tf.setId("pageSelector");
 		tf.setFont(Font.font("verdana", FontWeight.BOLD, FontPosture.REGULAR, 18));
 		StackPane zpane = new StackPane();
+
 		zoomMsg.setFont(Font.font("verdana", FontWeight.BOLD, FontPosture.REGULAR, 18));
 		zoomMsg.setFill(Color.WHITE);
 		zpane.getChildren().add(zoomMsg);
+
 		zoomMinus.setGraphic(new ImageView("resources\\zoom_minus.png"));
 		zoomPlus.setGraphic(new ImageView("resources\\zoom_plus.png"));
 		zoomReset.setGraphic(new ImageView("resources\\zoom_reset.png"));
@@ -119,10 +127,12 @@ public class Reader {
 		lastPage.setTooltip(new Tooltip("Go to last page"));
 		nextPage.setTooltip(new Tooltip("Go to next page"));
 		prevPage.setTooltip(new Tooltip("Go to previous page"));
+
 		hBox.getChildren().addAll(zoomMinus, zpane, zoomPlus, new Separator(Orientation.VERTICAL), zoomReset,
 				new Separator(Orientation.VERTICAL), firstPage, prevPage, tf, nextPage, lastPage);
 		zoomMinus.setDisable(true);
 		zoomReset.setDisable(true);
+
 		hBox.setAlignment(Pos.CENTER);
 		spane.setMinViewportWidth(1000);
 		spane.setHbarPolicy(ScrollBarPolicy.AS_NEEDED);
@@ -130,16 +140,19 @@ public class Reader {
 		bpane.setCenter(spane);
 		bpane.setTop(hBox);
 		Scene readerScene = new Scene(bpane, screenW, screenH);
-		if (!MainWindow.usrProp.isEmpty()) {
-			if (MainWindow.usrProp.getProperty("CURRENT_ZOOM") != "1") {
-				zoomMinus.setDisable(false);
-				zoomReset.setDisable(false);
+
+		if (zoomCount != 1) {
+			zoomMinus.setDisable(false);
+			zoomReset.setDisable(false);
+			if (zoomCount == 8) {
 				zoomPlus.setDisable(false);
-				zoomCount = Integer.parseInt(MainWindow.usrProp.getProperty("CURRENT_ZOOM"))/2;
-				zoomIn();
 			}
+			zoomCount /= 2;
+			zoomIn();
 		}
+
 		readerScene.getStylesheets().add(getClass().getResource(MainWindow.mainTheme).toString());
+
 		readerScene.setOnKeyPressed(e -> {
 			if (e.getCode() == KeyCode.ADD || e.getCode() == KeyCode.PLUS) {
 				zoomIn();
@@ -147,6 +160,7 @@ public class Reader {
 				zoomOut();
 			} else if (e.getCode() == KeyCode.Z) {
 				zoomCount = 2;
+				zoomPlus.setDisable(false);
 				zoomOut();
 			} else if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.KP_LEFT) {
 				loadPrev();
@@ -169,9 +183,9 @@ public class Reader {
 	}
 
 	/**
-	 * 
+	 * Method used to load the user selected book to the reader
 	 */
-	public static void loadFile(File pdfFilename) {
+	static void loadFile(File pdfFilename) {
 		try {
 			pageCount = -1;
 			document = PDDocument.load(pdfFilename);
@@ -187,9 +201,9 @@ public class Reader {
 	}
 
 	/**
-	 * 
+	 * Method used to load the next page of the book
 	 */
-	public static void loadNext() {
+	static void loadNext() {
 		try {
 			if (pageCount < document.getNumberOfPages()) {
 				pageCount++;
@@ -211,9 +225,9 @@ public class Reader {
 	}
 
 	/**
-	 * 
+	 * Method used to load the previous page of the book
 	 */
-	public static void loadPrev() {
+	static void loadPrev() {
 		try {
 			if (pageCount > 0) {
 				pageCount--;
@@ -235,10 +249,12 @@ public class Reader {
 	}
 
 	/**
+	 * Method used to load a user inserted (via text field) page (only when it is an
+	 * existing one)
 	 * 
-	 * @param i
+	 * @param i User provided page number
 	 */
-	public static void loadCustom(int i) {
+	static void loadCustom(int i) {
 		try {
 			int currentPage = pageCount;
 			if (i >= 0 & i <= document.getNumberOfPages()) {
@@ -258,15 +274,16 @@ public class Reader {
 	}
 
 	/**
-	 * 
+	 * Method used to increase the zoom; invoked by user action or the configuration
+	 * file
 	 */
-	public static void zoomIn() {
+	static void zoomIn() {
 		try {
 			if (zoomCount <= 16) {
 				zoomCount *= 2;
 				switch (zoomCount) {
 				case 2:
-					vBox.setPadding(new Insets(10, 225, 10, 225));
+					vBox.setPadding(new Insets(10, 375, 10, 375));
 					iv.setFitHeight(1100);
 					iv.setFitWidth(1100);
 					zoomMsg.setText("x" + zoomCount);
@@ -274,19 +291,19 @@ public class Reader {
 					zoomReset.setDisable(false);
 					break;
 				case 4:
-					vBox.setPadding(new Insets(10, 200, 10, 200));
+					vBox.setPadding(new Insets(10, 305, 10, 305));
 					iv.setFitHeight(1300);
 					iv.setFitWidth(1300);
 					zoomMsg.setText("x" + zoomCount);
 					break;
 				case 8:
-					vBox.setPadding(new Insets(10, 175, 10, 175));
+					vBox.setPadding(new Insets(10, 250, 10, 250));
 					iv.setFitHeight(1500);
 					iv.setFitWidth(1500);
 					zoomMsg.setText("x" + zoomCount);
 					break;
 				case 16:
-					vBox.setPadding(new Insets(8, 150, 8, 150));
+					vBox.setPadding(new Insets(8, 130, 8, 130));
 					iv.setFitHeight(1800);
 					iv.setFitWidth(1800);
 					zoomMsg.setText("x" + zoomCount);
@@ -300,14 +317,14 @@ public class Reader {
 	}
 
 	/**
-	 * 
+	 * Method used to decrease the zoom value
 	 */
-	public static void zoomOut() {
+	static void zoomOut() {
 		try {
 			if (zoomCount > 1) {
 				switch (zoomCount) {
 				case 2:
-					vBox.setPadding(new Insets(10, 250, 10, 250));
+					vBox.setPadding(new Insets(10, 410, 10, 410));
 					iv.setFitHeight(1000);
 					iv.setFitWidth(1000);
 					zoomMsg.setText("x" + zoomCount / 2);
@@ -315,19 +332,19 @@ public class Reader {
 					zoomReset.setDisable(true);
 					break;
 				case 4:
-					vBox.setPadding(new Insets(10, 225, 10, 225));
+					vBox.setPadding(new Insets(10, 375, 10, 375));
 					iv.setFitHeight(1100);
 					iv.setFitWidth(1100);
 					zoomMsg.setText("x" + zoomCount / 2);
 					break;
 				case 8:
-					vBox.setPadding(new Insets(10, 200, 10, 200));
+					vBox.setPadding(new Insets(10, 305, 10, 305));
 					iv.setFitHeight(1300);
 					iv.setFitWidth(1300);
 					zoomMsg.setText("x" + zoomCount / 2);
 					break;
 				case 16:
-					vBox.setPadding(new Insets(10, 175, 10, 175));
+					vBox.setPadding(new Insets(10, 250, 10, 250));
 					iv.setFitHeight(1500);
 					iv.setFitWidth(1500);
 					zoomMsg.setText("x" + zoomCount / 2);

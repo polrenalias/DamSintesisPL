@@ -8,11 +8,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
@@ -60,38 +68,61 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 /**
+ * Main class (Handles the elemental procedures of the application)
  * 
- * @author Pol
+ * @author Pol Renalias
  *
  */
 public class MainWindow extends Application {
-	public static Stage secondStage = null, mainStage = null;
-	public static Scene mainScene = null;
-	protected static File book;
-	protected static Stage primaryStage;
-	protected static String mainTheme;
+	// Fields declaration & initialization
+	static Stage secondStage = null, mainStage = null;
+	static Scene mainScene = null;
+	static File book;
+	static Stage primaryStage;
+	static String mainTheme;
 	private static boolean readerStarted = false;
-	protected static TableColumn<Book, String> imgCol, nameCol, authorCol, genreCol, yearCol, readerLink;
-	protected static ObservableList<Book> bookList = FXCollections.observableArrayList();
+	static Connection con;
+	static TableColumn<Book, String> imgCol, nameCol, authorCol, genreCol, yearCol, readerLink;
+	static ObservableList<Book> bookList = FXCollections.observableArrayList();
 	@SuppressWarnings("rawtypes")
-	protected static TableView tview = new TableView();
-	protected static Logger logger = Logger.getLogger("ProgramLog");
-	protected static Properties usrProp = new Properties();
-	protected static Path listPath, thumbPath, usrPath;
+	static TableView tview = new TableView();
+	static Logger logger = Logger.getLogger("ProgramLog");
+	static Properties usrProp = new Properties();
+	static Path listPath, thumbPath, usrPath;
+	static String username;
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		createLocalDeps();
+		startConnection();
 		primaryStage.getIcons().add(new Image("resources\\app_icon.png"));
-		primaryStage.setTitle("Log in");
+		primaryStage.setTitle("Authentication");
 		primaryStage.setMaximized(false);
 		primaryStage.setResizable(false);
-		primaryStage.setScene(startLogin());
+		primaryStage.setScene(startAuthProcess());
 		MainWindow.primaryStage = primaryStage;
 		primaryStage.show();
-		startCatalog();
 	}
 
+	/**
+	 * Method used to connect with the database
+	 */
+	private static void startConnection() {
+		try {
+			con = DriverManager.getConnection("jdbc:postgresql://192.168.56.100:5432/ReaderHistory", "postgres",
+					"1234");
+		} catch (SQLException sqle) {
+			logger.severe("SQLException - " + sqle.getMessage());
+			System.exit(1);
+		}
+	}
+
+	/**
+	 * Method used to create a lock file if an instance of the application is
+	 * already running
+	 * 
+	 * @return true/false (depends on the number of instances)
+	 */
 	private static boolean lockInstance() {
 		try {
 			final File file = new File("reader.lock");
@@ -107,8 +138,10 @@ public class MainWindow extends Application {
 	}
 
 	/**
+	 * Method used to create (in case they don't already exist) the local
+	 * dependencies of the application
 	 * 
-	 * @throws IOException
+	 * @throws IOException If the path/directory/file cannot be found/created
 	 */
 	private void createLocalDeps() throws IOException {
 		Path logPath = null;
@@ -137,89 +170,234 @@ public class MainWindow extends Application {
 			if (Files.notExists(configPath)) {
 				Files.createDirectory(configPath);
 			}
-			listPath = Paths.get(System.getProperty("user.dir") + File.separatorChar + "reader_local"
-					+ File.separatorChar + "config" + File.separatorChar + "book.list");
-			if (Files.notExists(listPath)) {
-				Files.createFile(listPath);
-			} else {
-				readList();
-			}
-			usrPath = Paths.get(System.getProperty("user.dir") + File.separatorChar + "reader_local"
-					+ File.separatorChar + "config" + File.separatorChar + "usr.conf");
-			if (Files.notExists(usrPath)) {
-				Files.createFile(usrPath);
-			} else {
-				readConf();
-			}
 			Files.deleteIfExists(logPath);
 			Files.createFile(logPath);
 			FileHandler handler = new FileHandler(logPath + "");
 			logger.addHandler(handler);
 			SimpleFormatter formatter = new SimpleFormatter();
 			handler.setFormatter(formatter);
-			logger.info("DEBUG: Init program");
+			logger.info("DEBUG - Init program");
 		} catch (IOException io) {
 			io.printStackTrace();
 		}
 	}
 
-	public Scene startLogin() {
-
+	/**
+	 * Method used to create the authentication window and implement its functions
+	 * 
+	 * @return the Scene (the functioning authentication window)
+	 */
+	Scene startAuthProcess() {
 		GridPane grid = new GridPane();
 		grid.setAlignment(Pos.CENTER);
 		grid.setHgap(10);
 		grid.setVgap(10);
 		grid.setPadding(new Insets(25, 25, 25, 25));
 
-		Text scenetitle = new Text("Log in");
+		Text scenetitle = new Text("L-Reader");
 		scenetitle.setFont(Font.font("Tahoma", FontWeight.NORMAL, 20));
+		Label userLabel = new Label("User name:");
+		TextField userField = new TextField();
+		Label passwLabel = new Label("Password:");
+		PasswordField passwField = new PasswordField();
+
 		grid.add(scenetitle, 0, 0, 2, 1);
+		grid.add(userLabel, 0, 1);
+		grid.add(userField, 1, 1);
+		grid.add(passwLabel, 0, 2);
+		grid.add(passwField, 1, 2);
 
-		Label userName = new Label("User Name:");
-		grid.add(userName, 0, 1);
+		Button logInBttn = new Button("Log in");
+		Button signInBttn = new Button("Sign in");
+		Button errorSign1 = new Button();
+		Button errorSign2 = new Button();
+		errorSign1.setId("signerr");
+		errorSign2.setId("signerr");
+		errorSign1.setGraphic(new ImageView("resources\\warning.png"));
+		errorSign2.setGraphic(new ImageView("resources\\warning.png"));
+		errorSign1.setVisible(false);
+		errorSign2.setVisible(false);
+		grid.add(errorSign1, 2, 1);
+		grid.add(errorSign2, 2, 2);
 
-		TextField userTextField = new TextField();
-		grid.add(userTextField, 1, 1);
+		Pattern passwReqs = Pattern.compile("(?=.*?[a-z]+)(?=.*?[A-Z]+)(?=.*?[0-9]+)");
 
-		Label pw = new Label("Password:");
-		grid.add(pw, 0, 2);
-
-		PasswordField pwBox = new PasswordField();
-		grid.add(pwBox, 1, 2);
-
-		Button btn = new Button("Submit");
-		btn.setOnMouseClicked(e -> {
-			loadMainWindow();
+		logInBttn.setOnMouseClicked(e -> {
+			errorSign1.setVisible(false);
+			errorSign2.setVisible(false);
+			errorSign2.setTooltip(null);
+			if (userField.getText() != "" & passwField.getText() != "") {
+				Matcher matcher = passwReqs.matcher(passwField.getText());
+				try {
+					if (checkUsername(userField.getText()) == true) {
+						if (matcher.find() & passwField.getText().toCharArray().length >= 8) {
+							if (attemptLogIn(userField.getText(), passwField.getText()) == true) {
+								username = userField.getText();
+								initProfile();
+								startCatalog();
+								loadMainWindow();
+							} else {
+								errorSign2.setTooltip(new Tooltip("The password isn't correct"));
+								errorSign2.setVisible(true);
+							}
+						} else {
+							errorSign2.setTooltip(new Tooltip("The password doesn't meet the complexity requirements"));
+							errorSign2.setVisible(true);
+						}
+					} else {
+						errorSign1.setTooltip(new Tooltip("The user doesn't exist"));
+						errorSign1.setVisible(true);
+					}
+				} catch (SQLException se) {
+					logger.warning("SQLException - " + se.getMessage());
+				}
+			}
 		});
-		HBox hbBtn = new HBox(10);
-		hbBtn.setId("login");
-		hbBtn.setAlignment(Pos.BOTTOM_RIGHT);
-		hbBtn.getChildren().add(btn);
-		grid.add(hbBtn, 1, 4);
-		Scene formScene = new Scene(grid, 300, 275);
-		if (!usrProp.isEmpty()) {
-			formScene.getStylesheets().add(getClass().getResource(usrProp.getProperty("CURRENT_THEME")).toString());
-			mainTheme = usrProp.getProperty("CURRENT_THEME");
-		} else {
-			formScene.getStylesheets().add(getClass().getResource("light_theme.css").toString());
-			mainTheme = "light_theme.css";
-		}
+
+		signInBttn.setOnMouseClicked(e -> {
+			errorSign1.setVisible(false);
+			errorSign2.setVisible(false);
+			if (userField.getText() != "" & passwField.getText() != "") {
+				Matcher matcher = passwReqs.matcher(passwField.getText());
+				try {
+					if (checkUsername(userField.getText()) == false) {
+						if (matcher.find() & passwField.getText().toCharArray().length >= 8) {
+							if (attemptSignIn(userField.getText(), passwField.getText()) == true) {
+								username = userField.getText();
+								initProfile();
+								startCatalog();
+								loadMainWindow();
+							}
+						} else {
+							errorSign2.setTooltip(new Tooltip("The password doesn't meet the complexity requirements"));
+							errorSign2.setVisible(true);
+						}
+					} else {
+						errorSign1.setTooltip(new Tooltip("The user name is already in use"));
+						errorSign1.setVisible(true);
+					}
+				} catch (SQLException se) {
+					logger.warning("SQLException - " + se.getMessage());
+				}
+			}
+		});
+
+		HBox hb = new HBox(10);
+		hb.setId("login");
+		hb.setAlignment(Pos.BOTTOM_RIGHT);
+		hb.getChildren().addAll(logInBttn, signInBttn);
+		grid.add(hb, 1, 4);
+
+		Scene formScene = new Scene(grid, 352, 225);
+		formScene.getStylesheets().add(getClass().getResource("light_theme.css").toString());
+		mainTheme = "light_theme.css";
+
 		return formScene;
 	}
 
-	public static void loadMainWindow() {
+	/**
+	 * Method used to initialize the user profile (the user's book list and the
+	 * configuration file)
+	 */
+	private void initProfile() {
+		try {
+			listPath = Paths.get(System.getProperty("user.dir") + File.separatorChar + "reader_local"
+					+ File.separatorChar + "config" + File.separatorChar + username + ".list");
+			if (Files.notExists(listPath)) {
+				Files.createFile(listPath);
+			} else {
+				readList();
+			}
+			usrPath = Paths.get(System.getProperty("user.dir") + File.separatorChar + "reader_local"
+					+ File.separatorChar + "config" + File.separatorChar + username + ".conf");
+			if (Files.notExists(usrPath)) {
+				Files.createFile(usrPath);
+			} else {
+				readConf();
+			}
+		} catch (IOException ioe) {
+			logger.severe("IOException - " + ioe.getMessage());
+		}
+	}
+
+	/**
+	 * Method used to check if the user name is correct/already exists
+	 * 
+	 * @param usr User name
+	 * @return true/false (if found/if not found)
+	 * @throws SQLException when the query fails for any reason
+	 */
+	private boolean checkUsername(String usr) throws SQLException {
+		String userQuery = "SELECT username FROM users WHERE username = ?";
+		PreparedStatement checkUserStatement = con.prepareStatement(userQuery);
+		checkUserStatement.setString(1, usr);
+		ResultSet userResults = checkUserStatement.executeQuery();
+		return userResults.next();
+	}
+
+	/**
+	 * Method used to attempt the user log in process with the user provided values
+	 * 
+	 * @param usr User name
+	 * @param pwd Password
+	 * @return true/false (if password is correct/not correct)
+	 * @throws SQLException when the query fails for any reason
+	 */
+	private boolean attemptLogIn(String usr, String pwd) throws SQLException {
+		String userQuery = "SELECT password FROM users WHERE username = ? AND password = ?";
+		String encodedPwd = Base64.getEncoder().encodeToString(pwd.getBytes());
+		PreparedStatement checkUserStatement = con.prepareStatement(userQuery);
+		checkUserStatement.setString(1, usr);
+		checkUserStatement.setString(2, encodedPwd);
+		ResultSet userResults = checkUserStatement.executeQuery();
+		return userResults.next();
+	}
+
+	/**
+	 * Method used to attempt the user registration process with the user provided
+	 * values
+	 * 
+	 * @param usr User name
+	 * @param pwd Password
+	 * @return true/false (if data is added/is not added)
+	 * @throws SQLException when the query fails for any reason
+	 */
+	private boolean attemptSignIn(String usr, String pwd) throws SQLException {
+		String insertQuery = "INSERT into users(username, password) VALUES (?, ?)";
+		String encodedPwd = Base64.getEncoder().encodeToString(pwd.getBytes());
+		PreparedStatement registerUser = con.prepareStatement(insertQuery);
+		registerUser.setString(1, usr);
+		registerUser.setString(2, encodedPwd);
+		int checkInsert = registerUser.executeUpdate();
+		if (checkInsert > 0) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Method used to load the catalog (main window) after the user authentication
+	 * is done
+	 */
+	static void loadMainWindow() {
 		primaryStage.hide();
 		primaryStage.getIcons().add(new Image("resources\\app_icon.png"));
 		primaryStage.setTitle("Catalog");
+		primaryStage.setResizable(true);
 		primaryStage.setScene(mainScene);
 		primaryStage.setMaximized(false);
 		primaryStage.show();
 	}
 
+	/**
+	 * Method used to create the main window (catalog) and its functionalities
+	 */
 	@SuppressWarnings("unchecked")
-	public void startCatalog() {
+	void startCatalog() {
 		BorderPane bpane = new BorderPane();
 		StackPane container = new StackPane(tview);
+
 		tview.setPlaceholder(new Label("No books to display"));
 		imgCol = new TableColumn<>("Thumbnail");
 		nameCol = new TableColumn<>("Name");
@@ -233,26 +411,31 @@ public class MainWindow extends Application {
 		genreCol.setCellValueFactory(new PropertyValueFactory<Book, String>("Genre"));
 		yearCol.setCellValueFactory(new PropertyValueFactory<Book, String>("Year"));
 		readerLink.setCellValueFactory(new PropertyValueFactory<Book, String>("Link"));
+
 		imgCol.setSortable(false);
 		nameCol.setSortable(false);
 		authorCol.setSortable(false);
 		genreCol.setSortable(false);
 		yearCol.setSortable(false);
 		readerLink.setSortable(false);
+
 		tview.getColumns().addAll(imgCol, nameCol, authorCol, genreCol, yearCol, readerLink);
 		tview.getItems().addAll(bookList);
+
 		imgCol.setResizable(false);
 		nameCol.setResizable(false);
 		authorCol.setResizable(false);
 		genreCol.setResizable(false);
 		yearCol.setResizable(false);
 		readerLink.setResizable(false);
+
 		imgCol.prefWidthProperty().bind(tview.widthProperty().divide(7.5));
 		nameCol.prefWidthProperty().bind(tview.widthProperty().divide(4));
 		authorCol.prefWidthProperty().bind(tview.widthProperty().divide(4));
 		genreCol.prefWidthProperty().bind(tview.widthProperty().divide(7));
 		yearCol.prefWidthProperty().bind(tview.widthProperty().divide(14));
 		readerLink.prefWidthProperty().bind(tview.widthProperty().divide(6.7));
+
 		ToolBar tbar = new ToolBar();
 		FileChooser fPrompt = new FileChooser();
 		fPrompt.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF", "*.pdf"));
@@ -260,11 +443,13 @@ public class MainWindow extends Application {
 		MenuItem openBttn = new MenuItem("Add file...");
 		MenuItem aboutBttn = new MenuItem("About");
 		MenuItem helpBttn = new MenuItem("Help");
+
 		if (System.getProperty("os.name").contains("Windows")) {
 			fPrompt.setInitialDirectory(new File("C:\\Users\\" + System.getProperty("user.name") + "\\Documents"));
 		} else {
 			fPrompt.setInitialDirectory(new File("/home/" + System.getProperty("user.name") + "/Documents"));
 		}
+
 		Alert helpBox = new Alert(AlertType.INFORMATION);
 		Alert aboutBox = new Alert(AlertType.INFORMATION);
 		helpBox.setTitle("Help");
@@ -280,6 +465,7 @@ public class MainWindow extends Application {
 		stageA.getIcons().add(new Image("resources\\app_icon.png"));
 		helpBox.setGraphic(null);
 		aboutBox.setGraphic(new ImageView("resources\\app_icon_s.png"));
+
 		aboutBttn.setOnAction(e -> aboutBox.show());
 		helpBttn.setOnAction(e -> helpBox.show());
 		openBttn.setOnAction(e -> {
@@ -295,6 +481,7 @@ public class MainWindow extends Application {
 				}
 			}
 		});
+
 		MenuButton mbutton = new MenuButton("Options", null, openBttn, aboutBttn, helpBttn);
 		TextField tf = new TextField("Search book...");
 		tf.setMaxWidth(150);
@@ -305,6 +492,7 @@ public class MainWindow extends Application {
 		final Pane spacer = new Pane();
 		HBox.setHgrow(spacer, Priority.ALWAYS);
 		tbar.getItems().addAll(mbutton, spacer, tf, themeBttn);
+
 		VBox pcontent = new VBox();
 		VBox menubar = new VBox(tbar);
 		Hyperlink hl0 = new Hyperlink("Name");
@@ -315,10 +503,12 @@ public class MainWindow extends Application {
 		Accordion sortMenu = new Accordion();
 		TitledPane pane0 = new TitledPane("Sort by", pcontent);
 		TitledPane pane1 = new TitledPane("Browse by", null);
+
 		hl0.setOnAction(e -> sortBy('N'));
 		hl1.setOnAction(e -> sortBy('A'));
 		hl2.setOnAction(e -> sortBy('G'));
 		hl3.setOnAction(e -> sortBy('Y'));
+
 		themeBttn.setOnMouseClicked(e -> {
 			if (mainTheme == "light_theme.css") {
 				mainScene.getStylesheets().add(getClass().getResource("dark_theme.css").toString());
@@ -338,6 +528,7 @@ public class MainWindow extends Application {
 				}
 			}
 		});
+
 		pane1.setDisable(true);
 		sortMenu.getPanes().add(pane0);
 		sortMenu.getPanes().add(pane1);
@@ -347,26 +538,42 @@ public class MainWindow extends Application {
 		bpane.setLeft(selector);
 		mainScene = new Scene(bpane, 1280, 720);
 		selector.prefHeightProperty().bind(mainScene.heightProperty());
-		mainScene.getStylesheets().add(getClass().getResource(mainTheme).toString());
+
+		if (mainTheme.equals("light_theme.css")) {
+			mainScene.getStylesheets().add(getClass().getResource("light_theme.css").toString());
+			mainTheme = "light_theme.css";
+		} else if (mainTheme.equals("dark_theme.css")) {
+			mainScene.getStylesheets().add(getClass().getResource("dark_theme.css").toString());
+			mainTheme = "dark_theme.css";
+		}
 	}
 
+	/**
+	 * Method used to read the current user book list (if it exists)
+	 * 
+	 * @throws IOException when the attempt to access the list provokes any error
+	 */
 	private static void readList() throws IOException {
 		BufferedReader reader = Files.newBufferedReader(listPath);
 		String line;
 		int i = 0;
+
 		ImageView tn = new ImageView();
 		tn.setFitWidth(90);
 		tn.setFitHeight(150);
+
 		try {
 			while ((line = reader.readLine()) != null) {
 				String[] elements = line.split(",");
 				tn = new ImageView(new Image(elements[0], 100, 150, false, false));
+
 				bookList.add(new Book(tn, elements[1], elements[2], elements[3], elements[4], elements[5]));
 				bookList.get(i).setThumbnailPath(elements[0]);
 				bookList.get(i).setPath(elements[6]);
+
 				bookList.get(i).getLink().setOnAction(new EventHandler<ActionEvent>() {
 					@Override
-					public void handle(ActionEvent event) {
+					public void handle(ActionEvent arg0) {
 						loadReader(new File(elements[6]));
 					}
 				});
@@ -378,29 +585,45 @@ public class MainWindow extends Application {
 	}
 
 	/**
+	 * Method used to read the current user configuration file (if it exists)
 	 * 
-	 * @throws IOException
+	 * @throws IOException when the attempt to access the list provokes any error
 	 */
 	private static void readConf() throws IOException {
 		BufferedReader reader = Files.newBufferedReader(usrPath);
-		String[] params = new String[] { "CURRENT_THEME", "CURRENT_ZOOM" };
 		String line;
+		byte[] decodBytes;
 		int i = 0;
+
 		while ((line = reader.readLine()) != null) {
-			usrProp.setProperty(params[i], line);
+			decodBytes = Base64.getDecoder().decode(line);
+			String prop = new String(decodBytes);
+
+			switch (i) {
+			case 0:
+				mainTheme = prop;
+				break;
+			case 1:
+				Reader.zoomCount = Integer.parseInt(prop);
+				break;
+			}
 			i++;
 		}
 	}
 
 	/**
+	 * Method invoked when the user adds a book with the file chooser prompt; it is
+	 * used to add the book's data to the catalog table
 	 * 
-	 * @param file
-	 * @return
+	 * @param file Book's file
+	 * @param info Book's metadata
 	 */
 	@SuppressWarnings("unchecked")
-	public static void addToTable(File file, PDDocumentInformation info) {
+	static void addToTable(File file, PDDocumentInformation info) {
+		Book b;
 		Path thumbPath = Paths.get((System.getProperty("user.dir") + File.separatorChar + "reader_local"
 				+ File.separatorChar + "resources" + File.separatorChar + info.getTitle() + "_thumbnail.jpg"));
+
 		if (!Files.exists(thumbPath)) {
 			try {
 				PDFRenderer pdfRenderer = new PDFRenderer(PDDocument.load(file));
@@ -410,11 +633,25 @@ public class MainWindow extends Application {
 				e.printStackTrace();
 			}
 		}
+
 		ImageView tn = new ImageView(new Image(thumbPath.toAbsolutePath().toString()));
 		tn.setFitWidth(90);
 		tn.setFitHeight(150);
-		Book b = new Book(tn, info.getTitle(), info.getAuthor(), info.getSubject(), info.getKeywords(),
-				file.getAbsolutePath());
+
+		if (info.getTitle() == null & info.getAuthor() == null & info.getSubject() == null
+				& info.getKeywords() == null) {
+			b = new Book(tn, file.getName(), "Unknown", "Unknown", "Unknown", file.getAbsolutePath());
+		} else if (info.getTitle() != null & info.getAuthor() == null & info.getSubject() == null
+				& info.getKeywords() == null) {
+			b = new Book(tn, info.getTitle(), "Unknown", "Unknown", "Unknown", file.getAbsolutePath());
+		} else if (info.getTitle() != null & info.getAuthor() != null & info.getSubject() == null
+				& info.getKeywords() == null) {
+			b = new Book(tn, info.getTitle(), info.getAuthor(), "Unknown", "Unknown", file.getAbsolutePath());
+		} else {
+			b = new Book(tn, info.getTitle(), info.getAuthor(), info.getSubject(), info.getKeywords(),
+					file.getAbsolutePath());
+		}
+
 		b.setThumbnailPath(thumbPath.toString());
 		b.getLink().setOnAction(new EventHandler<ActionEvent>() {
 			@Override
@@ -422,6 +659,7 @@ public class MainWindow extends Application {
 				loadReader(new File(b.getPath()));
 			}
 		});
+
 		if (!bookList.contains(b)) {
 			bookList.add(b);
 			ObservableList<Book> tmp = bookList;
@@ -433,28 +671,58 @@ public class MainWindow extends Application {
 	}
 
 	/**
+	 * Method used to invoke the book reader window
 	 * 
-	 * @param f
+	 * @param f User selected book
 	 */
-	public static void loadReader(File f) {
+	static void loadReader(File f) {
 		Stage secondStage = new Stage();
+
 		if (readerStarted == false) {
 			Reader reader = new Reader();
 			reader.startReader();
 			readerStarted = true;
 		}
+
 		secondStage.setTitle("Reader");
 		secondStage.setResizable(false);
 		secondStage.setScene(Reader.readerScene);
-		if (!MainWindow.usrProp.isEmpty()) {
-			Reader.zoomCount = Integer.parseInt(usrProp.getProperty("CURRENT_ZOOM"));
-		}
 		secondStage.getIcons().add(new Image("resources\\app_icon.png"));
 		MainWindow.secondStage = secondStage;
 		Reader.loadFile(f);
+
+		try {
+			storeRemoteData(username, f);
+		} catch (SQLException se) {
+			logger.severe("SQLException - " + se.getMessage());
+		}
 		secondStage.show();
 	}
 
+	/**
+	 * Method used to add the reading history of the current user to the database
+	 * 
+	 * @param usr User name
+	 * @param f   Book
+	 * @throws SQLException when the query fails for any reason
+	 */
+	private static void storeRemoteData(String usr, File f) throws SQLException {
+		String insertQuery = "INSERT INTO books (id_user, file_name, read_date) VALUES ((SELECT id FROM users WHERE username = ?), ?, CURRENT_TIMESTAMP)";
+		PreparedStatement registerData = con.prepareStatement(insertQuery);
+		registerData.setString(1, usr);
+		registerData.setString(2, f.getName());
+		int checkInsert = registerData.executeUpdate();
+		if (!(checkInsert > 0)) {
+			storeRemoteData(usr, f);
+		}
+	}
+
+	/**
+	 * Method invoked by the sorting events of the catalog table; used to sort the
+	 * table contents by one of the book's metadata values
+	 * 
+	 * @param selection
+	 */
 	@SuppressWarnings("unchecked")
 	private static void sortBy(char selection) {
 		imgCol.setSortable(true);
@@ -463,6 +731,7 @@ public class MainWindow extends Application {
 		genreCol.setSortable(true);
 		yearCol.setSortable(true);
 		readerLink.setSortable(true);
+
 		switch (selection) {
 		case 'N':
 			nameCol.setSortType(TableColumn.SortType.ASCENDING);
@@ -492,16 +761,20 @@ public class MainWindow extends Application {
 	}
 
 	/**
+	 * Method used to store the current session data (user's book list and
+	 * application configuration)
 	 * 
-	 * @throws IOException
+	 * @throws IOException when the one or both files cannot be created/written
 	 */
-	private static void userDataStore() throws IOException {
-		usrProp.setProperty("CURRENT_THEME", mainTheme);
-		usrProp.setProperty("CURRENT_ZOOM", Reader.zoomCount + "");
+	private static void storeLocalData() throws IOException {
+		Files.delete(usrPath);
 		FileWriter fw = new FileWriter(usrPath.toString());
-		fw.write(usrProp.getProperty("CURRENT_THEME") + "\n" + usrProp.getProperty("CURRENT_ZOOM"));
+		String encTheme = Base64.getEncoder().encodeToString(mainTheme.getBytes());
+		String encZoom = Base64.getEncoder().encodeToString(String.valueOf(Reader.zoomCount).getBytes());
+		fw.write(encTheme + "\n" + encZoom);
 		fw.close();
 		Files.delete(listPath);
+
 		if (!bookList.isEmpty()) {
 			FileWriter writer = new FileWriter(listPath.toString());
 			for (Book b : bookList) {
@@ -512,16 +785,25 @@ public class MainWindow extends Application {
 		}
 	}
 
+	/**
+	 * Override used on the stop method to have the application execute its content
+	 * always on the application's closing (whatever situation had caused the
+	 * closure)
+	 */
 	@Override
 	public void stop() {
-		try {
-			userDataStore();
-		} catch (IOException e) {
-			logger.severe("IOException: " + e.getMessage());
+		if (username != null) {
+			try {
+				storeLocalData();
+			} catch (IOException e) {
+				logger.severe("IOException: " + e.getMessage());
+			}
 		}
 	}
 
 	/**
+	 * Main method used to invoke the lockInstance method and to launch the JavaFX
+	 * main thread
 	 * 
 	 * @param args
 	 */

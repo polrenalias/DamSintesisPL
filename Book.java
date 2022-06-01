@@ -4,24 +4,40 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.image.ImageView;
 
 /**
+ * Book class used for storing the user selected book's various metadata
  * 
- * @author Pol
+ * @author Pol Renalias
  *
  */
 public class Book {
+	/**
+	 * Book's thumb nail
+	 */
 	private ImageView thumbnail;
+	/**
+	 * Book's metadata
+	 */
 	private String name, author, genre, year;
+	/**
+	 * Book link property to set the reader starting event
+	 */
 	private Hyperlink link;
+	/**
+	 * Book's file path
+	 */
 	private String path;
+	/**
+	 * Thumb nail's file path
+	 */
 	private String thumbnailPath;
 
 	/**
-	 * 
-	 * @param t
-	 * @param n
-	 * @param a
-	 * @param g
-	 * @param y
+	 * Default parameterized constructor
+	 * @param t Thumb nail
+	 * @param n Name
+	 * @param a Author
+	 * @param g Genre
+	 * @param y Year
 	 */
 	public Book(ImageView t, String n, String a, String g, String y, String p) {
 		thumbnail = t;
