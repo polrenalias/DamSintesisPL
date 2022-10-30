@@ -1,6 +1,6 @@
-# DamSintesisPL
+# L-Reader
 PROYECTO:
-  ReaderHistory
+  L-Reader - Lector de e-books
   
 AUTORES: 
   Diego Fernández Sanz --- Pol Renalias Perez
